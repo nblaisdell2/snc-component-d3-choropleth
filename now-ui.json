@@ -1,0 +1,617 @@
+{
+  "components": {
+    "x-1295779-choropleth-chart-uic": {
+      "innerComponents": [],
+      "uiBuilder": {
+        "associatedTypes": [
+          "global.core",
+          "global.landing-page"
+        ],
+        "label": "D3 Choropleth Map",
+        "tileIcon": "./tile-icon/generic-tile-icon.svg",
+        "description": "A configurable geographic choropleth / symbol map rendered with D3.js (d3-geo). Bind a GeoJSON FeatureCollection of regions; each region is filled by a value via a sequential/diverging/quantized color scale (choropleth mode) or marked with a value-sized circle at its centroid (symbol mode). Selectable projection (Albers USA, Mercator, Equal Earth, Natural Earth, Orthographic), gradient color legend, optional region labels, hover highlight, and a fully restyleable property panel. Hook into click/hover events.",
+        "category": "primitives"
+      },
+      "properties": [
+        {
+          "name": "data",
+          "label": "Data · GeoJSON",
+          "fieldType": "json",
+          "description": "A GeoJSON FeatureCollection: { type:'FeatureCollection', features:[ { type:'Feature', properties:{ name, id?, value? }, geometry:{...} } ] }. Each feature color/size comes from its joined numeric value (see Value field / the Values prop). Authors bind real GeoJSON (or a TopoJSON-derived FeatureCollection) to this property; leave empty to show built-in sample US-state data."
+        },
+        {
+          "name": "values",
+          "label": "Data · Value join (optional)",
+          "fieldType": "json",
+          "description": "Optional array [ { id, value } ] (or { name, value }) that joins to features by id or name. When supplied it OVERRIDES the feature own value, so you can keep static geometry and feed live metrics separately. Leave empty to read the value from each feature properties."
+        },
+        {
+          "name": "chartTitle",
+          "label": "Header & border · Title",
+          "description": "Title rendered above the map. Leave blank to hide.",
+          "fieldType": "string",
+          "defaultValue": "Incidents by State"
+        },
+        {
+          "name": "titleFontSize",
+          "label": "Header & border · Title font size",
+          "description": "Font size of the chart title, in pixels.",
+          "fieldType": "number",
+          "defaultValue": 18
+        },
+        {
+          "name": "titleColor",
+          "label": "Header & border · Title color",
+          "description": "Text color of the chart title.",
+          "fieldType": "string",
+          "defaultValue": "#374151"
+        },
+        {
+          "name": "componentWidth",
+          "label": "Header & border · Width",
+          "description": "Outer width of the whole widget. CSS length, e.g. \"50%\", \"640px\". A bare number is treated as pixels.",
+          "fieldType": "string",
+          "defaultValue": "50%"
+        },
+        {
+          "name": "componentPadding",
+          "label": "Header & border · Padding",
+          "description": "Padding around the whole widget. CSS length, e.g. \"12px\", \"1rem\". A bare number is treated as pixels.",
+          "fieldType": "string",
+          "defaultValue": "12px"
+        },
+        {
+          "name": "backgroundColor",
+          "label": "Header & border · Background color",
+          "description": "Map background. CSS color or \"transparent\".",
+          "fieldType": "string",
+          "defaultValue": "transparent"
+        },
+        {
+          "name": "borderColor",
+          "label": "Header & border · Border color",
+          "description": "Border color of the widget. Leave blank for no border.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
+          "name": "borderWidth",
+          "label": "Header & border · Border width",
+          "description": "Border thickness in pixels. 0 = no border.",
+          "fieldType": "number",
+          "defaultValue": 0
+        },
+        {
+          "name": "borderRadius",
+          "label": "Header & border · Border radius",
+          "description": "Rounded corners of the widget, in pixels.",
+          "fieldType": "number",
+          "defaultValue": 0
+        },
+        {
+          "name": "chartHeight",
+          "label": "Display · Chart height (px)",
+          "description": "Height of the map in pixels (the main size knob; the projection is fit to the available width/height).",
+          "fieldType": "number",
+          "defaultValue": 420
+        },
+        {
+          "name": "fontFamily",
+          "label": "Display · Base font family",
+          "description": "CSS font-family for map text that does not have its own family set. Blank = inherit from the page.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
+          "name": "animate",
+          "label": "Display · Animate",
+          "description": "Fade regions (and symbols) in on first render and on data change.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "animationDuration",
+          "label": "Display · Animation duration (ms)",
+          "description": "Duration of the fade-in animation in milliseconds.",
+          "fieldType": "number",
+          "defaultValue": 800
+        },
+        {
+          "name": "animationEasing",
+          "label": "Display · Animation easing",
+          "description": "Easing curve for the fade-in animation.",
+          "fieldType": "choice",
+          "defaultValue": "cubicOut",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Linear",
+                "value": "linear"
+              },
+              {
+                "label": "Cubic out",
+                "value": "cubicOut"
+              },
+              {
+                "label": "Cubic in-out",
+                "value": "cubicInOut"
+              },
+              {
+                "label": "Quad out",
+                "value": "quadOut"
+              },
+              {
+                "label": "Exp out",
+                "value": "expOut"
+              },
+              {
+                "label": "Back out",
+                "value": "backOut"
+              },
+              {
+                "label": "Bounce out",
+                "value": "bounceOut"
+              },
+              {
+                "label": "Elastic out",
+                "value": "elasticOut"
+              }
+            ]
+          }
+        },
+        {
+          "name": "hoverHighlight",
+          "label": "Display · Hover highlight",
+          "description": "Emphasize a region on mouse-over (raise it and draw a darker outline).",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "hoverDimOthers",
+          "label": "Display · Dim others on hover",
+          "description": "Fade the other regions (and symbols) while hovering one, to focus attention.",
+          "fieldType": "boolean",
+          "defaultValue": false
+        },
+        {
+          "name": "projection",
+          "label": "Map · Projection",
+          "description": "Geographic projection used to draw the regions. Albers USA suits US-state maps (it composites Alaska/Hawaii and has no rotation). Mercator / Equal Earth / Natural Earth / Orthographic suit world or regional maps. The projection is auto-fit to your data extent.",
+          "fieldType": "choice",
+          "defaultValue": "albersUsa",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Albers USA",
+                "value": "albersUsa"
+              },
+              {
+                "label": "Mercator",
+                "value": "mercator"
+              },
+              {
+                "label": "Equal Earth",
+                "value": "equalEarth"
+              },
+              {
+                "label": "Natural Earth",
+                "value": "naturalEarth1"
+              },
+              {
+                "label": "Orthographic (globe)",
+                "value": "orthographic"
+              }
+            ]
+          }
+        },
+        {
+          "name": "mapMode",
+          "label": "Map · Display mode",
+          "description": "Choropleth = fill each region by its value with the color scale. Symbol = fill regions a flat land color and draw a circle at each region centroid sized by value (a proportional-symbol map).",
+          "fieldType": "choice",
+          "defaultValue": "choropleth",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Choropleth (fill by value)",
+                "value": "choropleth"
+              },
+              {
+                "label": "Symbol (sized circles)",
+                "value": "symbol"
+              }
+            ]
+          }
+        },
+        {
+          "name": "valueField",
+          "label": "Map · Value field",
+          "description": "The property key on each feature that holds its numeric value when you are NOT supplying the separate Values join (e.g. \"value\", \"count\", \"density\").",
+          "fieldType": "string",
+          "defaultValue": "value"
+        },
+        {
+          "name": "colorScaleType",
+          "label": "Colors · Scale type",
+          "description": "Sequential = a continuous low->high ramp. Diverging = a two-sided ramp around a midpoint (e.g. above/below a target). Quantize = discrete color buckets. (Choropleth mode.)",
+          "fieldType": "choice",
+          "defaultValue": "sequential",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Sequential",
+                "value": "sequential"
+              },
+              {
+                "label": "Diverging",
+                "value": "diverging"
+              },
+              {
+                "label": "Quantize (discrete buckets)",
+                "value": "quantize"
+              }
+            ]
+          }
+        },
+        {
+          "name": "colorScheme",
+          "label": "Colors · Color scheme",
+          "description": "The D3 color interpolator that maps value -> region color. Sequential schemes (Blues, Greens, Oranges, Reds, Purples, Viridis, Inferno, Magma, Cividis, YlOrRd, YlGnBu) suit one-directional data; diverging schemes (RdYlGn, RdBu, Spectral) suit a midpoint. (Choropleth mode.)",
+          "fieldType": "choice",
+          "defaultValue": "blues",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Blues",
+                "value": "blues"
+              },
+              {
+                "label": "Greens",
+                "value": "greens"
+              },
+              {
+                "label": "Oranges",
+                "value": "oranges"
+              },
+              {
+                "label": "Reds",
+                "value": "reds"
+              },
+              {
+                "label": "Purples",
+                "value": "purples"
+              },
+              {
+                "label": "Viridis",
+                "value": "viridis"
+              },
+              {
+                "label": "Inferno",
+                "value": "inferno"
+              },
+              {
+                "label": "Magma",
+                "value": "magma"
+              },
+              {
+                "label": "Cividis",
+                "value": "cividis"
+              },
+              {
+                "label": "YlOrRd",
+                "value": "YlOrRd"
+              },
+              {
+                "label": "YlGnBu",
+                "value": "YlGnBu"
+              },
+              {
+                "label": "RdYlGn (diverging)",
+                "value": "RdYlGn"
+              },
+              {
+                "label": "RdBu (diverging)",
+                "value": "RdBu"
+              },
+              {
+                "label": "Spectral (diverging)",
+                "value": "spectral"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reverseColors",
+          "label": "Colors · Reverse scheme",
+          "description": "Flip the color ramp so high values take the light end and low values the dark end (or vice-versa).",
+          "fieldType": "boolean",
+          "defaultValue": false
+        },
+        {
+          "name": "colorMin",
+          "label": "Colors · Value domain minimum",
+          "fieldType": "number",
+          "description": "Fix the value that maps to the low end of the color scale. Blank = automatic (the data minimum)."
+        },
+        {
+          "name": "colorMax",
+          "label": "Colors · Value domain maximum",
+          "fieldType": "number",
+          "description": "Fix the value that maps to the high end of the color scale. Blank = automatic (the data maximum)."
+        },
+        {
+          "name": "divergingMidpoint",
+          "label": "Colors · Diverging midpoint",
+          "fieldType": "number",
+          "description": "Only for Diverging scale type: the value placed at the center of the color ramp. Blank = automatic (the mean of the data)."
+        },
+        {
+          "name": "quantizeSteps",
+          "label": "Colors · Quantize steps",
+          "description": "Only for Quantize scale type: the number of discrete color buckets the value range is split into.",
+          "fieldType": "number",
+          "defaultValue": 5
+        },
+        {
+          "name": "noDataColor",
+          "label": "Colors · No-data color",
+          "description": "Fill color for regions that have no joined numeric value (choropleth mode). Use \"transparent\" to leave them blank.",
+          "fieldType": "string",
+          "defaultValue": "#f3f4f6"
+        },
+        {
+          "name": "landColor",
+          "label": "Regions · Land color (symbol mode)",
+          "description": "Flat base fill for all regions when Display mode = Symbol.",
+          "fieldType": "string",
+          "defaultValue": "#e5e7eb"
+        },
+        {
+          "name": "borderStroke",
+          "label": "Regions · Border color",
+          "description": "Stroke color drawn between regions. Blank = no border.",
+          "fieldType": "string",
+          "defaultValue": "#ffffff"
+        },
+        {
+          "name": "borderStrokeWidth",
+          "label": "Regions · Border width (px)",
+          "description": "Width of the region borders, in pixels. 0 = no border.",
+          "fieldType": "number",
+          "defaultValue": 0.75
+        },
+        {
+          "name": "symbolColor",
+          "label": "Symbols · Color (symbol mode)",
+          "description": "Fill color of the proportional-symbol circles.",
+          "fieldType": "string",
+          "defaultValue": "#2E93fA"
+        },
+        {
+          "name": "symbolOpacity",
+          "label": "Symbols · Opacity (symbol mode)",
+          "description": "Fill opacity of the symbol circles, 0-1 (helps when circles overlap).",
+          "fieldType": "number",
+          "defaultValue": 0.75
+        },
+        {
+          "name": "symbolMinRadius",
+          "label": "Symbols · Min radius (px)",
+          "description": "Radius (px) of the smallest-value symbol. Area encodes value via a square-root scale.",
+          "fieldType": "number",
+          "defaultValue": 3
+        },
+        {
+          "name": "symbolMaxRadius",
+          "label": "Symbols · Max radius (px)",
+          "description": "Radius (px) of the largest-value symbol.",
+          "fieldType": "number",
+          "defaultValue": 26
+        },
+        {
+          "name": "showLabels",
+          "label": "Labels · Show region names",
+          "description": "Draw each region name at its centroid. Labels on regions too small to fit text are skipped automatically.",
+          "fieldType": "boolean",
+          "defaultValue": false
+        },
+        {
+          "name": "labelField",
+          "label": "Labels · Field",
+          "description": "Which feature property to use as the label text (default \"name\").",
+          "fieldType": "string",
+          "defaultValue": "name"
+        },
+        {
+          "name": "labelFontSize",
+          "label": "Labels · Font size (px)",
+          "description": "Font size of the region labels, in pixels.",
+          "fieldType": "number",
+          "defaultValue": 10
+        },
+        {
+          "name": "labelColor",
+          "label": "Labels · Color",
+          "description": "Text color of the region labels.",
+          "fieldType": "string",
+          "defaultValue": "#374151"
+        },
+        {
+          "name": "axisColor",
+          "label": "Axes · Line color",
+          "description": "Color of the color-legend axis line and tick marks.",
+          "fieldType": "string",
+          "defaultValue": "#6b7280"
+        },
+        {
+          "name": "axisTextColor",
+          "label": "Axes · Text color",
+          "description": "Text color for the color-legend tick labels and titles.",
+          "fieldType": "string",
+          "defaultValue": "#6b7280"
+        },
+        {
+          "name": "axisFontSize",
+          "label": "Axes · Font size",
+          "description": "Font size (px) for the color-legend tick labels.",
+          "fieldType": "number",
+          "defaultValue": 12
+        },
+        {
+          "name": "axisFontFamily",
+          "label": "Axes · Font family",
+          "description": "CSS font-family for the color-legend labels. Blank = use the base font family.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
+          "name": "showColorLegend",
+          "label": "Color legend · Show legend",
+          "description": "Show a gradient color legend mapping colors back to values (choropleth mode). In symbol mode this toggles a small size hint instead.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "colorLegendPosition",
+          "label": "Color legend · Position",
+          "description": "Where to place the color legend: to the Right of the map (vertical bar) or below it (horizontal bar).",
+          "fieldType": "choice",
+          "defaultValue": "right",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Right (vertical)",
+                "value": "right"
+              },
+              {
+                "label": "Bottom (horizontal)",
+                "value": "bottom"
+              }
+            ]
+          }
+        },
+        {
+          "name": "colorLegendTitle",
+          "label": "Color legend · Title",
+          "description": "Optional caption above/beside the color legend. Leave blank to hide.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
+          "name": "colorLegendFormat",
+          "label": "Color legend · Tick format",
+          "description": "D3 number format specifier for the legend ticks and the {formattedValue} tooltip token (e.g. \".0f\", \",.0f\", \"$,.0f\", \".0%\", \".2s\"). Blank = default.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
+          "name": "showTooltip",
+          "label": "Tooltip · Show tooltip",
+          "description": "Show a hover tooltip over each region / symbol.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "tooltipTemplate",
+          "label": "Tooltip · Template",
+          "description": "Tooltip content (light HTML allowed). Tokens: {name}, {id}, {value}, {formattedValue}, {swatch} (a color dot matching the region/symbol), {color}, and any custom key on the feature properties. Interpolated values are HTML-escaped.",
+          "fieldType": "string",
+          "defaultValue": "{swatch}<strong>{name}</strong><br/>{formattedValue}"
+        },
+        {
+          "name": "tooltipFollowCursor",
+          "label": "Tooltip · Follow cursor",
+          "description": "Tooltip follows the pointer. Either way it is clamped within the chart bounds.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "tooltipBackground",
+          "label": "Tooltip · Background color",
+          "description": "Tooltip background (CSS color, supports rgba).",
+          "fieldType": "string",
+          "defaultValue": "rgba(17,24,39,0.92)"
+        },
+        {
+          "name": "tooltipTextColor",
+          "label": "Tooltip · Text color",
+          "description": "Tooltip text color.",
+          "fieldType": "string",
+          "defaultValue": "#ffffff"
+        },
+        {
+          "name": "tooltipFontSize",
+          "label": "Tooltip · Font size",
+          "description": "Tooltip font size, in pixels.",
+          "fieldType": "number",
+          "defaultValue": 12
+        }
+      ],
+      "actions": [
+        {
+          "name": "CHART_CLICKED",
+          "label": "Chart clicked",
+          "description": "Fired when the user clicks anywhere on the map (not on a specific region).",
+          "payload": [
+            {
+              "name": "regionCount",
+              "label": "Number of regions",
+              "description": "How many regions are rendered."
+            }
+          ]
+        },
+        {
+          "name": "REGION_CLICKED",
+          "label": "Region clicked",
+          "description": "Fired when the user clicks an individual region or symbol. Use to drill into details for that region.",
+          "payload": [
+            {
+              "name": "name",
+              "label": "Region name",
+              "description": "The name of the clicked region."
+            },
+            {
+              "name": "id",
+              "label": "Region id",
+              "description": "The id of the clicked region (e.g. a 2-letter state code)."
+            },
+            {
+              "name": "value",
+              "label": "Value",
+              "description": "The numeric value of the region (null when no data)."
+            }
+          ]
+        },
+        {
+          "name": "REGION_HOVERED",
+          "label": "Region hovered",
+          "description": "Fired when the user hovers a region or symbol. Useful for syncing external tooltips or details panels.",
+          "payload": [
+            {
+              "name": "name",
+              "label": "Region name",
+              "description": "The name of the hovered region."
+            },
+            {
+              "name": "id",
+              "label": "Region id",
+              "description": "The id of the hovered region."
+            },
+            {
+              "name": "value",
+              "label": "Value",
+              "description": "The numeric value of the region (null when no data)."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "scopeName": "x_1295779_choropleth_0"
+}
