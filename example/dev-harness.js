@@ -86,7 +86,9 @@ export function mountDevHarness(root = document.body) {
 		if (live !== undefined && live !== null) return live;
 		if (def.defaultValue !== undefined) return def.defaultValue;
 		if (def.fieldType === 'boolean') return false;
-		if (def.fieldType === 'number') return 0;
+		// numbers with no declared default stay blank (0 is rarely a neutral value —
+		// e.g. it would collapse an optional min/max domain to [0,0])
+		if (def.fieldType === 'number') return '';
 		if (def.fieldType === 'json') return [];
 		return '';
 	};

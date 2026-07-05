@@ -39,30 +39,40 @@ import {
 } from 'd3-geo';
 import {
 	interpolateBlues, interpolateGreens, interpolateOranges, interpolateReds,
-	interpolatePurples, interpolateViridis, interpolateInferno, interpolateMagma,
-	interpolateCividis, interpolateYlOrRd, interpolateYlGnBu,
+	interpolatePurples, interpolateGreys, interpolateViridis, interpolateInferno,
+	interpolateMagma, interpolatePlasma, interpolateCividis, interpolateTurbo,
+	interpolateWarm, interpolateCool, interpolateYlOrRd, interpolateYlGnBu,
 	interpolateRdYlGn, interpolateRdBu, interpolateSpectral
 } from 'd3-scale-chromatic';
+import { zoom, zoomIdentity } from 'd3-zoom';
 import { format } from 'd3-format';
 import { color as d3color } from 'd3-color';
+import { interpolateHcl } from 'd3-interpolate';
 import {
 	easeLinear, easeCubicOut, easeCubicInOut, easeQuadOut,
 	easeExpOut, easeBackOut, easeBounceOut, easeElasticOut
 } from 'd3-ease';
 
-// Color interpolators selectable via the `colorScheme` property.
+// Color interpolators selectable via the `colorScheme` / `valueColorScheme` properties.
 const INTERPOLATORS = {
 	blues: interpolateBlues,
 	greens: interpolateGreens,
 	oranges: interpolateOranges,
 	reds: interpolateReds,
 	purples: interpolatePurples,
+	greys: interpolateGreys,
 	viridis: interpolateViridis,
 	inferno: interpolateInferno,
 	magma: interpolateMagma,
+	plasma: interpolatePlasma,
 	cividis: interpolateCividis,
+	turbo: interpolateTurbo,
+	warm: interpolateWarm,
+	cool: interpolateCool,
 	YlOrRd: interpolateYlOrRd,
 	YlGnBu: interpolateYlGnBu,
+	ylOrRd: interpolateYlOrRd,
+	ylGnBu: interpolateYlGnBu,
 	RdYlGn: interpolateRdYlGn,
 	RdBu: interpolateRdBu,
 	spectral: interpolateSpectral
@@ -179,7 +189,13 @@ export function drawChart(container, props, dispatch) {
 	const projectionName = PROJECTIONS[props.projection] ? props.projection : 'albersUsa';
 
 	const colorScaleType = ['sequential', 'diverging', 'quantize'].indexOf(props.colorScaleType) > -1 ? props.colorScaleType : 'sequential';
-	const colorScheme = INTERPOLATORS[props.colorScheme] ? props.colorScheme : 'blues';
+	// valueColorScheme wins when set; blank inherits the universal colorScheme
+	const baseColorScheme = INTERPOLATORS[props.colorScheme] ? props.colorScheme : 'blues';
+	const colorScheme = INTERPOLATORS[props.valueColorScheme] ? props.valueColorScheme : baseColorScheme;
+	const colorMode = props.colorMode === 'custom' ? 'custom' : 'scheme';
+	// custom-gradient endpoints; fall back to defaults when a color fails to parse
+	const customColorStart = d3color(props.customColorStart) ? props.customColorStart : '#eff6ff';
+	const customColorEnd = d3color(props.customColorEnd) ? props.customColorEnd : '#1e3a8a';
 	const reverseColors = props.reverseColors === true;
 	const quantizeSteps = Math.max(2, Math.round(num(props.quantizeSteps, 5)));
 
@@ -194,9 +210,10 @@ export function drawChart(container, props, dispatch) {
 	const symbolMaxRadius = Math.max(symbolMinRadius, num(props.symbolMaxRadius, 26));
 
 	const showLabels = props.showLabels === true;
+	const labelContent = ['name', 'value', 'both'].indexOf(props.labelContent) > -1 ? props.labelContent : 'name';
 	const labelField = isBlank(props.labelField) ? 'name' : String(props.labelField);
 	const labelFontSize = num(props.labelFontSize, 10);
-	const labelColor = props.labelColor || '#374151';
+	const labelColor = props.labelColor || ''; // blank -> per-region auto contrast
 
 	const titleFontSize = num(props.titleFontSize, 18);
 	const axisFontSize = num(props.axisFontSize, 12);
@@ -204,13 +221,27 @@ export function drawChart(container, props, dispatch) {
 	const animationDuration = Math.max(0, num(props.animationDuration, 800));
 	const animate = props.animate !== false && animationDuration > 0;
 	const easeFn = EASINGS[props.animationEasing] || easeCubicOut;
+	const animationStagger = Math.max(0, num(props.animationStagger, 0)); // ms delay per region
 
 	const hoverHighlight = props.hoverHighlight !== false;
+	const hoverColor = props.hoverColor || '';
 	const hoverDimOthers = props.hoverDimOthers === true;
+
+	const dropShadow = props.dropShadow !== false;
+	const shadowBlur = Math.max(0, num(props.shadowBlur, 4));
+
+	const enableZoom = props.enableZoom !== false;
+	const minZoom = Math.max(0.05, num(props.minZoom, 0.25));
+	const maxZoom = Math.max(minZoom, num(props.maxZoom, 4));
+	const showZoomControls = enableZoom && props.showZoomControls !== false;
 
 	const showColorLegend = props.showColorLegend !== false;
 	const colorLegendPosition = props.colorLegendPosition === 'bottom' ? 'bottom' : 'right';
 	const colorLegendTitle = props.colorLegendTitle || '';
+	const colorLegendMargin = Math.max(0, num(props.colorLegendMargin, 16));
+	const colorLegendTitlePosition = ['top', 'bottom', 'left', 'right'].indexOf(props.colorLegendTitlePosition) > -1
+		? props.colorLegendTitlePosition
+		: 'top';
 
 	const axisColor = props.axisColor || '#6b7280';
 	const axisTextColor = props.axisTextColor || '#6b7280';
@@ -234,6 +265,7 @@ export function drawChart(container, props, dispatch) {
 		try { return format(spec); } catch (e) { return (n) => `${n}`; }
 	};
 	const valueFmt = makeFmt(props.colorLegendFormat);
+	const labelValueFmt = isBlank(props.labelValueFormat) ? valueFmt : makeFmt(props.labelValueFormat);
 
 	// ----- value domain (drives the color / size scale) -----
 	const finite = features.map((f) => f.__value).filter((v) => Number.isFinite(v));
@@ -244,16 +276,22 @@ export function drawChart(container, props, dispatch) {
 	let domMax = isBlank(props.colorMax) ? dataMax : num(props.colorMax, dataMax);
 	if (domMax === domMin) domMax = domMin + 1; // avoid a zero-width domain (all-equal values)
 
-	// interpolator with optional reversal
-	const baseInterp = INTERPOLATORS[colorScheme];
+	// interpolator with optional reversal. Custom gradients interpolate in HCL for
+	// perceptually even ramps; everything downstream (regions, legend, label
+	// contrast) consumes `interp`.
+	const baseInterp = colorMode === 'custom'
+		? interpolateHcl(customColorStart, customColorEnd)
+		: INTERPOLATORS[colorScheme];
 	const interp = reverseColors ? (t) => baseInterp(1 - t) : baseInterp;
 
 	// build the value -> color scale per scale type (same machinery as the heatmap)
+	// clamp: values outside a fixed colorMin/colorMax domain render at the
+	// endpoint colors instead of extrapolating (HCL extrapolation goes black)
 	let colorScale;
 	if (colorScaleType === 'diverging') {
 		const autoMid = (dataMean >= domMin && dataMean <= domMax) ? dataMean : (domMin + domMax) / 2;
 		const mid = isBlank(props.divergingMidpoint) ? autoMid : num(props.divergingMidpoint, autoMid);
-		colorScale = scaleDiverging([domMin, mid, domMax], interp);
+		colorScale = scaleDiverging([domMin, mid, domMax], interp).clamp(true);
 	} else if (colorScaleType === 'quantize') {
 		const range = [];
 		for (let i = 0; i < quantizeSteps; i += 1) {
@@ -261,7 +299,7 @@ export function drawChart(container, props, dispatch) {
 		}
 		colorScale = scaleQuantize().domain([domMin, domMax]).range(range);
 	} else {
-		colorScale = scaleSequential([domMin, domMax], interp);
+		colorScale = scaleSequential([domMin, domMax], interp).clamp(true);
 	}
 	const colorFor = (v) => (Number.isFinite(v) ? colorScale(v) : noDataColor);
 
@@ -275,11 +313,53 @@ export function drawChart(container, props, dispatch) {
 	const root = select(container);
 	root.selectAll('*').remove();
 
-	// ----- dimensions -----
+	// ----- dimensions (width first; height depends on the sizing mode) -----
 	const rect = container.getBoundingClientRect();
 	const measuredW = Math.floor(rect.width) || container.clientWidth || 0;
 	const width = Math.max(220, measuredW || 600);
-	const height = Math.max(120, num(props.chartHeight, 420));
+
+	// ----- layout margins (computed before the svg so height can derive from them) -----
+	const margin = { top: 8, right: 12, bottom: 8, left: 12 };
+	if (chartTitle) margin.top += titleFontSize + 18;
+
+	// reserve for the color legend (choropleth mode only)
+	const legendThick = 14; // bar thickness
+	const legendTickRoom = axisFontSize + 8; // vertical room for tick labels (bottom legend)
+	const legendTitleRoom = colorLegendTitle ? axisFontSize + 6 : 0;
+	// Estimate the widest tick label so the right legend reserves enough horizontal
+	// room (and its title clears the labels) for whatever tick format is in use.
+	const legendMaxChars = Math.max(1, ...[domMin, (domMin + domMax) / 2, domMax]
+		.map((v) => String(isBlank(props.colorLegendFormat) ? v : valueFmt(v)).length));
+	const estTickLabelW = Math.ceil(legendMaxChars * axisFontSize * 0.62);
+	const legendTickRoomRight = 7 + estTickLabelW + 4; // label x-offset + width + pad
+	const drawColorLegend = showColorLegend && mapMode === 'choropleth' && finite.length > 0;
+	if (drawColorLegend) {
+		if (colorLegendPosition === 'right') {
+			margin.right += colorLegendMargin + legendThick + legendTickRoomRight + legendTitleRoom;
+		} else {
+			margin.bottom += colorLegendMargin + legendThick + legendTickRoom + legendTitleRoom;
+		}
+	}
+
+	const innerW = Math.max(10, width - margin.left - margin.right);
+
+	// ----- height: fixed px, or derived from the map's aspect at this width -----
+	const heightMode = props.heightMode === 'fixed' ? 'fixed' : 'aspect';
+	const projection = PROJECTIONS[projectionName]();
+	let height = Math.max(120, num(props.chartHeight, 420));
+	if (heightMode === 'aspect' && features.length) {
+		try {
+			// fit to width, then read the projected bounds to get the natural height
+			projection.fitWidth(innerW, fc);
+			const b = geoPath(projection).bounds(fc);
+			const naturalH = Math.ceil(b[1][1] - b[0][1]);
+			if (Number.isFinite(naturalH) && naturalH > 0) {
+				// chartHeight acts as a minimum in aspect mode
+				height = Math.max(height, margin.top + naturalH + margin.bottom);
+			}
+		} catch (e) { /* fall back to the fixed height */ }
+	}
+	const innerH = Math.max(10, height - margin.top - margin.bottom);
 
 	// ----- root svg + chart-level click target -----
 	const svg = root
@@ -294,6 +374,20 @@ export function drawChart(container, props, dispatch) {
 		});
 
 	svg.append('rect').attr('class', 'cc-bg').attr('width', width).attr('height', height).attr('fill', backgroundColor);
+
+	// drop-shadow filter
+	if (dropShadow) {
+		const shadowDefs = svg.append('defs');
+		const filter = shadowDefs.append('filter')
+			.attr('id', 'cc-shadow')
+			.attr('x', '-30%').attr('y', '-30%')
+			.attr('width', '160%').attr('height', '160%');
+		filter.append('feDropShadow')
+			.attr('dx', 0)
+			.attr('dy', 1)
+			.attr('stdDeviation', shadowBlur)
+			.attr('flood-color', props.shadowColor || 'rgba(0,0,0,0.25)');
+	}
 
 	// ----- title -----
 	if (chartTitle) {
@@ -312,29 +406,7 @@ export function drawChart(container, props, dispatch) {
 		return;
 	}
 
-	// ----- layout margins -----
-	const margin = { top: 8, right: 12, bottom: 8, left: 12 };
-	if (chartTitle) margin.top += titleFontSize + 18;
-
-	// reserve for the color legend (choropleth mode only)
-	const legendThick = 14; // bar thickness
-	const legendTickRoom = axisFontSize + 8;
-	const legendGap = 16;
-	const legendTitleRoom = colorLegendTitle ? axisFontSize + 6 : 0;
-	const drawColorLegend = showColorLegend && mapMode === 'choropleth' && finite.length > 0;
-	if (drawColorLegend) {
-		if (colorLegendPosition === 'right') {
-			margin.right += legendThick + legendTickRoom + legendGap + legendTitleRoom;
-		} else {
-			margin.bottom += legendThick + legendTickRoom + legendGap + legendTitleRoom;
-		}
-	}
-
-	const innerW = Math.max(10, width - margin.left - margin.right);
-	const innerH = Math.max(10, height - margin.top - margin.bottom);
-
 	// ----- projection fit to data + inner size -----
-	const projection = PROJECTIONS[projectionName]();
 	// All chosen projections support fitSize; geoAlbersUsa has no rotate (just fitSize).
 	try {
 		projection.fitSize([innerW, innerH], fc);
@@ -344,10 +416,25 @@ export function drawChart(container, props, dispatch) {
 	}
 	const pathGen = geoPath(projection);
 
-	const plot = svg.append('g').attr('class', 'cc-plot').attr('transform', `translate(${margin.left},${margin.top})`);
+	// When zoom is on, the plot is wrapped in a static clipped viewport so panned/
+	// zoomed content crops at the map area instead of spilling over the legend or
+	// title. The margin translate lives on a wrapper group -- the zoom transform
+	// owns cc-plot's own transform.
+	let plotHost = svg;
+	if (enableZoom) {
+		svg.append('clipPath').attr('id', 'cc-clip')
+			.append('rect')
+			.attr('x', margin.left).attr('y', margin.top)
+			.attr('width', innerW).attr('height', innerH);
+		plotHost = svg.append('g').attr('class', 'cc-viewport').attr('clip-path', 'url(#cc-clip)');
+	}
+	const plot = plotHost.append('g')
+		.attr('transform', `translate(${margin.left},${margin.top})`)
+		.append('g').attr('class', 'cc-plot');
 
 	// ----- region paths -----
-	const regionLayer = plot.append('g').attr('class', 'cc-regions');
+	const regionLayer = plot.append('g').attr('class', 'cc-regions')
+		.attr('filter', dropShadow ? 'url(#cc-shadow)' : null);
 	const regionSel = regionLayer.selectAll('path').data(features).join('path')
 		.attr('class', 'cc-region')
 		.attr('d', (d) => pathGen(d) || '')
@@ -382,17 +469,28 @@ export function drawChart(container, props, dispatch) {
 		features.forEach((d) => {
 			const c = pathGen.centroid(d);
 			if (!Number.isFinite(c[0]) || !Number.isFinite(c[1])) return;
+			const name = labelField === 'name' ? d.__name : (d.__props && d.__props[labelField] !== undefined ? String(d.__props[labelField]) : d.__name);
+			const val = Number.isFinite(d.__value) ? labelValueFmt(d.__value) : null;
+			const lines = (labelContent === 'value' ? [val] : labelContent === 'both' ? [name, val] : [name])
+				.filter((s) => s !== null && s !== undefined && s !== '');
+			if (!lines.length) return;
 			const area = pathGen.area(d); // px^2 of the projected region
-			// hide labels on regions too small to legibly fit text
-			if (area < (labelFontSize * labelFontSize * 6)) return;
-			const txt = labelField === 'name' ? d.__name : (d.__props && d.__props[labelField] !== undefined ? String(d.__props[labelField]) : d.__name);
-			if (!txt) return;
-			labelLayer.append('text')
+			// hide labels on regions too small to legibly fit text (2 lines need double)
+			if (area < (labelFontSize * labelFontSize * 6 * lines.length)) return;
+			// blank labelColor -> black/white picked per region for contrast
+			const fill = labelColor || contrastColor(fillFor(d.__value));
+			const text = labelLayer.append('text')
 				.attr('x', c[0]).attr('y', c[1])
 				.attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
-				.attr('fill', labelColor)
-				.style('font-size', `${labelFontSize}px`).style('font-family', fontFamily)
-				.text(txt);
+				.attr('fill', fill)
+				.style('font-size', `${labelFontSize}px`).style('font-family', fontFamily);
+			// single line sits on the centroid; two lines straddle it
+			lines.forEach((line, i) => {
+				text.append('tspan')
+					.attr('x', c[0])
+					.attr('dy', i === 0 ? (lines.length > 1 ? '-0.55em' : 0) : '1.1em')
+					.text(line);
+			});
 		});
 	}
 
@@ -448,9 +546,15 @@ export function drawChart(container, props, dispatch) {
 		if (!hoverHighlight) return;
 		if (on) {
 			const fill = fillFor(d.__value);
-			regionSel.filter((r) => r === d).raise()
+			const hovered = regionSel.filter((r) => r === d).raise()
 				.attr('stroke', darken(d.__value === null ? noDataColor : fill, 1.2))
 				.attr('stroke-width', Math.max(borderStrokeWidth, 1.5));
+			// explicit hoverColor recolors the hovered region/symbol; blank keeps the
+			// default outline-only emphasis
+			if (hoverColor) {
+				hovered.attr('fill', hoverColor);
+				if (symbolSel) symbolSel.filter((s) => s.feat === d).attr('fill', hoverColor);
+			}
 			if (hoverDimOthers) {
 				regionSel.filter((r) => r !== d).style('opacity', 0.35);
 				if (symbolSel) symbolSel.filter((s) => s.feat !== d).style('opacity', 0.3);
@@ -460,6 +564,10 @@ export function drawChart(container, props, dispatch) {
 				.attr('stroke', borderStroke && borderStrokeWidth > 0 ? borderStroke : 'none')
 				.attr('stroke-width', borderStroke && borderStrokeWidth > 0 ? borderStrokeWidth : null)
 				.style('opacity', baseRegionOpacity);
+			if (hoverColor) {
+				regionSel.attr('fill', (r) => fillFor(r.__value));
+				if (symbolSel) symbolSel.attr('fill', symbolColor);
+			}
 			if (symbolSel) symbolSel.style('opacity', 1);
 		}
 	};
@@ -499,8 +607,11 @@ export function drawChart(container, props, dispatch) {
 		const valueAt = (t) => domMin + t * (domMax - domMin);
 
 		if (colorLegendPosition === 'right') {
+			// title on the left of the bar reserves a slot; otherwise it sits after the ticks
+			const titleLeft = colorLegendTitle && colorLegendTitlePosition === 'left';
+			const mapRight = margin.left + innerW;
 			const barH = Math.max(40, innerH * 0.8);
-			const barX = margin.left + innerW + legendGap;
+			const barX = mapRight + colorLegendMargin + (titleLeft ? legendTitleRoom : 0);
 			const barY = margin.top + (innerH - barH) / 2;
 			const grad = defs.append('linearGradient').attr('id', gradId)
 				.attr('x1', 0).attr('y1', 1).attr('x2', 0).attr('y2', 0); // top = high value
@@ -522,8 +633,14 @@ export function drawChart(container, props, dispatch) {
 			axis.select('.domain').remove();
 
 			if (colorLegendTitle) {
+				// measure the rendered axis so a right-side title clears the actual tick labels
+				const axisNode = axis.node();
+				const axisW = (axisNode && axisNode.getBBox && axisNode.getBBox().width) || legendTickRoomRight;
+				const titleX = titleLeft
+					? mapRight + colorLegendMargin
+					: barX + legendThick + axisW + axisFontSize;
 				legend.append('text')
-					.attr('transform', `translate(${barX + legendThick + legendTickRoom + axisFontSize},${barY + barH / 2}) rotate(-90)`)
+					.attr('transform', `translate(${titleX},${barY + barH / 2}) rotate(-90)`)
 					.attr('text-anchor', 'middle').attr('fill', axisTextColor)
 					.style('font-size', `${axisFontSize}px`).style('font-family', axisFontFamily)
 					.style('font-weight', '600').text(colorLegendTitle);
@@ -531,7 +648,10 @@ export function drawChart(container, props, dispatch) {
 		} else {
 			const barW = Math.max(60, innerW * 0.6);
 			const barX = margin.left + (innerW - barW) / 2;
-			const barY = height - margin.bottom + legendGap - legendTickRoom;
+			// anchor the legend group a clean margin below the map
+			const groupTop = margin.top + innerH + colorLegendMargin;
+			const titleBelow = colorLegendTitle && colorLegendTitlePosition === 'bottom';
+			const barY = groupTop + (colorLegendTitle && !titleBelow ? legendTitleRoom : 0);
 			const grad = defs.append('linearGradient').attr('id', gradId)
 				.attr('x1', 0).attr('y1', 0).attr('x2', 1).attr('y2', 0); // left = low value
 			for (let i = 0; i <= STOPS; i += 1) {
@@ -552,8 +672,11 @@ export function drawChart(container, props, dispatch) {
 			axis.select('.domain').remove();
 
 			if (colorLegendTitle) {
+				const titleY = titleBelow
+					? barY + legendThick + legendTickRoom + axisFontSize
+					: groupTop + axisFontSize;
 				legend.append('text')
-					.attr('x', barX + barW / 2).attr('y', barY - 5)
+					.attr('x', barX + barW / 2).attr('y', titleY)
 					.attr('text-anchor', 'middle').attr('fill', axisTextColor)
 					.style('font-size', `${axisFontSize}px`).style('font-family', axisFontFamily)
 					.style('font-weight', '600').text(colorLegendTitle);

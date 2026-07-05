@@ -1,12 +1,9 @@
 {
   "components": {
-    "x-1295779-choropleth-chart-uic": {
+    "x-2114311-choropleth-chart-uic": {
       "innerComponents": [],
       "uiBuilder": {
-        "associatedTypes": [
-          "global.core",
-          "global.landing-page"
-        ],
+        "associatedTypes": ["global.core", "global.landing-page"],
         "label": "D3 Choropleth Map",
         "tileIcon": "./tile-icon/generic-tile-icon.svg",
         "description": "A configurable geographic choropleth / symbol map rendered with D3.js (d3-geo). Bind a GeoJSON FeatureCollection of regions; each region is filled by a value via a sequential/diverging/quantized color scale (choropleth mode) or marked with a value-sized circle at its centroid (symbol mode). Selectable projection (Albers USA, Mercator, Equal Earth, Natural Earth, Orthographic), gradient color legend, optional region labels, hover highlight, and a fully restyleable property panel. Hook into click/hover events.",
@@ -91,9 +88,23 @@
         {
           "name": "chartHeight",
           "label": "Display · Chart height (px)",
-          "description": "Height of the map in pixels (the main size knob; the projection is fit to the available width/height).",
+          "description": "Height of the map in pixels. With Height sizing set to 'Match map aspect' this acts as a minimum; with 'Fixed height' it is the exact height.",
           "fieldType": "number",
           "defaultValue": 420
+        },
+        {
+          "name": "heightMode",
+          "label": "Display · Height sizing",
+          "description": "How the chart height is determined. 'Match map aspect' derives the height from the component width and the map's shape (no letterboxing); 'Fixed height' uses the exact Chart height (px) value.",
+          "fieldType": "choice",
+          "defaultValue": "aspect",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              { "label": "Match map aspect", "value": "aspect" },
+              { "label": "Fixed height", "value": "fixed" }
+            ]
+          }
         },
         {
           "name": "fontFamily",
@@ -161,6 +172,13 @@
           }
         },
         {
+          "name": "animationStagger",
+          "label": "Animation · Animation stagger (ms)",
+          "description": "Delay between regions for a cascade fade-in (0 = all regions animate together).",
+          "fieldType": "number",
+          "defaultValue": 0
+        },
+        {
           "name": "hoverHighlight",
           "label": "Display · Hover highlight",
           "description": "Emphasize a region on mouse-over (raise it and draw a darker outline).",
@@ -168,11 +186,39 @@
           "defaultValue": true
         },
         {
+          "name": "hoverColor",
+          "label": "Display · Hover color (when hover highlight on)",
+          "description": "Color a region turns on hover. Blank = automatically brighten the region's own color.",
+          "fieldType": "string",
+          "defaultValue": ""
+        },
+        {
           "name": "hoverDimOthers",
           "label": "Display · Dim others on hover",
           "description": "Fade the other regions (and symbols) while hovering one, to focus attention.",
           "fieldType": "boolean",
           "defaultValue": false
+        },
+        {
+          "name": "dropShadow",
+          "label": "Drop shadow · Drop shadow",
+          "description": "Apply a soft drop shadow to the map regions.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "shadowColor",
+          "label": "Drop shadow · Shadow color (when drop shadow on)",
+          "description": "Color of the region drop shadow (supports rgba).",
+          "fieldType": "string",
+          "defaultValue": "rgba(0,0,0,0.25)"
+        },
+        {
+          "name": "shadowBlur",
+          "label": "Drop shadow · Shadow blur (when drop shadow on)",
+          "description": "Blur radius of the drop shadow, in pixels.",
+          "fieldType": "number",
+          "defaultValue": 4
         },
         {
           "name": "projection",
@@ -234,6 +280,34 @@
           "defaultValue": "value"
         },
         {
+          "name": "enableZoom",
+          "label": "Zoom · Enable zoom & pan",
+          "description": "Zoom with the mouse wheel / pinch and pan by dragging the background. Double-click zooms in (shift+double-click zooms out).",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
+          "name": "minZoom",
+          "label": "Zoom · Min zoom",
+          "description": "Smallest allowed zoom scale (e.g. 0.25 = zoomed out to quarter size).",
+          "fieldType": "number",
+          "defaultValue": 0.25
+        },
+        {
+          "name": "maxZoom",
+          "label": "Zoom · Max zoom",
+          "description": "Largest allowed zoom scale (e.g. 4 = 4x magnification).",
+          "fieldType": "number",
+          "defaultValue": 4
+        },
+        {
+          "name": "showZoomControls",
+          "label": "Zoom · Show zoom buttons",
+          "description": "Show +, − and reset buttons in the top-right corner of the chart. Requires zoom to be enabled.",
+          "fieldType": "boolean",
+          "defaultValue": true
+        },
+        {
           "name": "colorScaleType",
           "label": "Colors · Scale type",
           "description": "Sequential = a continuous low->high ramp. Diverging = a two-sided ramp around a midpoint (e.g. above/below a target). Quantize = discrete color buckets. (Choropleth mode.)",
@@ -254,6 +328,20 @@
                 "label": "Quantize (discrete buckets)",
                 "value": "quantize"
               }
+            ]
+          }
+        },
+        {
+          "name": "colorMode",
+          "label": "Colors · Color mode",
+          "description": "Where the gradient colors come from: a preset color scheme, or a custom gradient defined by your own start and end colors. (Choropleth mode.)",
+          "fieldType": "choice",
+          "defaultValue": "scheme",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              { "label": "Preset scheme", "value": "scheme" },
+              { "label": "Custom gradient", "value": "custom" }
             ]
           }
         },
@@ -324,6 +412,100 @@
               }
             ]
           }
+        },
+        {
+          "name": "valueColorScheme",
+          "label": "Colors · Sequential scheme (By value)",
+          "description": "Sequential color scheme used for the value color scale. Maps the smallest value to the lightest color and the largest to the darkest. Blank inherits the Color scheme.",
+          "fieldType": "choice",
+          "defaultValue": "",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              {
+                "label": "Inherit (use Color scheme)",
+                "value": ""
+              },
+              {
+                "label": "Blues",
+                "value": "blues"
+              },
+              {
+                "label": "Greens",
+                "value": "greens"
+              },
+              {
+                "label": "Oranges",
+                "value": "oranges"
+              },
+              {
+                "label": "Purples",
+                "value": "purples"
+              },
+              {
+                "label": "Reds",
+                "value": "reds"
+              },
+              {
+                "label": "Greys",
+                "value": "greys"
+              },
+              {
+                "label": "Viridis",
+                "value": "viridis"
+              },
+              {
+                "label": "Magma",
+                "value": "magma"
+              },
+              {
+                "label": "Inferno",
+                "value": "inferno"
+              },
+              {
+                "label": "Plasma",
+                "value": "plasma"
+              },
+              {
+                "label": "Cividis",
+                "value": "cividis"
+              },
+              {
+                "label": "Turbo",
+                "value": "turbo"
+              },
+              {
+                "label": "Warm",
+                "value": "warm"
+              },
+              {
+                "label": "Cool",
+                "value": "cool"
+              },
+              {
+                "label": "YlGnBu",
+                "value": "ylGnBu"
+              },
+              {
+                "label": "YlOrRd",
+                "value": "ylOrRd"
+              }
+            ]
+          }
+        },
+        {
+          "name": "customColorStart",
+          "label": "Colors · Custom start color",
+          "description": "Low-end color of the custom gradient. Applies when Color mode is 'Custom gradient'.",
+          "fieldType": "string",
+          "defaultValue": "#eff6ff"
+        },
+        {
+          "name": "customColorEnd",
+          "label": "Colors · Custom end color",
+          "description": "High-end color of the custom gradient. Applies when Color mode is 'Custom gradient'.",
+          "fieldType": "string",
+          "defaultValue": "#1e3a8a"
         },
         {
           "name": "reverseColors",
@@ -415,10 +597,25 @@
         },
         {
           "name": "showLabels",
-          "label": "Labels · Show region names",
-          "description": "Draw each region name at its centroid. Labels on regions too small to fit text are skipped automatically.",
+          "label": "Labels · Show region labels",
+          "description": "Draw a label at each region's centroid. Labels on regions too small to fit text are skipped automatically.",
           "fieldType": "boolean",
           "defaultValue": false
+        },
+        {
+          "name": "labelContent",
+          "label": "Labels · Content",
+          "description": "What each region label shows: the region name, its value, or both (name over value).",
+          "fieldType": "choice",
+          "defaultValue": "name",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              { "label": "Name", "value": "name" },
+              { "label": "Value", "value": "value" },
+              { "label": "Name and value", "value": "both" }
+            ]
+          }
         },
         {
           "name": "labelField",
@@ -437,9 +634,16 @@
         {
           "name": "labelColor",
           "label": "Labels · Color",
-          "description": "Text color of the region labels.",
+          "description": "Text color of the region labels. Leave blank for automatic black/white contrast against each region's fill.",
           "fieldType": "string",
           "defaultValue": "#374151"
+        },
+        {
+          "name": "labelValueFormat",
+          "label": "Labels · Value format",
+          "description": "d3-format spec for the value shown in region labels (e.g. .0f, .1s). Blank falls back to the color legend's Tick format.",
+          "fieldType": "string",
+          "defaultValue": ""
         },
         {
           "name": "axisColor",
@@ -502,6 +706,29 @@
           "description": "Optional caption above/beside the color legend. Leave blank to hide.",
           "fieldType": "string",
           "defaultValue": ""
+        },
+        {
+          "name": "colorLegendMargin",
+          "label": "Color legend · Margin (px)",
+          "description": "Gap (px) between the map and the legend. Applies below the map when the legend is on the bottom, and to the right of the map when it is on the right.",
+          "fieldType": "number",
+          "defaultValue": 16
+        },
+        {
+          "name": "colorLegendTitlePosition",
+          "label": "Color legend · Title position",
+          "description": "Where the optional legend title sits relative to the legend. Top/Bottom apply when the legend is on the bottom; Left/Right apply when it is on the right.",
+          "fieldType": "choice",
+          "defaultValue": "top",
+          "typeMetadata": {
+            "variant": "dropdown",
+            "choices": [
+              { "label": "Top", "value": "top" },
+              { "label": "Bottom", "value": "bottom" },
+              { "label": "Left", "value": "left" },
+              { "label": "Right", "value": "right" }
+            ]
+          }
         },
         {
           "name": "colorLegendFormat",
@@ -613,5 +840,5 @@
       ]
     }
   },
-  "scopeName": "x_1295779_chor_0"
+  "scopeName": "x_2114311_chor_0"
 }

@@ -1,0 +1,53 @@
+[
+  {
+    "name": "table",
+    "label": "Table",
+    "description": "Table storing one region per record, e.g. a custom 'u_geo_region' table.",
+    "fieldType": "string",
+    "mandatory": true,
+    "defaultValue": ""
+  },
+  {
+    "name": "filter",
+    "label": "Filter (encoded query)",
+    "description": "Optional encoded query to scope the regions.",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "geometryField",
+    "label": "Geometry field",
+    "description": "Field holding a GeoJSON geometry (a JSON string, or a Feature/geometry object).",
+    "fieldType": "string",
+    "mandatory": true,
+    "defaultValue": ""
+  },
+  {
+    "name": "idField",
+    "label": "Id field",
+    "description": "Field used as the feature id (properties.id).",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "nameField",
+    "label": "Name field",
+    "description": "Field used as the feature display name (properties.name).",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "valueField",
+    "label": "Value field",
+    "description": "Numeric field read per record into properties.value (the choropleth metric).",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "recordLimit",
+    "label": "Record limit (safety cap)",
+    "description": "Maximum regions read. Default 5000.",
+    "fieldType": "number",
+    "defaultValue": 5000
+  }
+]

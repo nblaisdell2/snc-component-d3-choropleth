@@ -1,1 +1,1 @@
-import './x-1295779-choropleth-chart-uic';
+import "./x-2114311-choropleth-chart-uic";

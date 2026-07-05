@@ -1,0 +1,53 @@
+[
+  {
+    "name": "table",
+    "label": "Table",
+    "description": "Table to query, e.g. 'incident'.",
+    "fieldType": "string",
+    "mandatory": true,
+    "defaultValue": "incident"
+  },
+  {
+    "name": "filter",
+    "label": "Filter (encoded query)",
+    "description": "Optional encoded query to scope the rows, e.g. 'active=true'.",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "regionField",
+    "label": "Region field",
+    "description": "Field identifying the region, e.g. 'location.state', 'u_state', or 'country'. Its value becomes the join id.",
+    "fieldType": "string",
+    "mandatory": true,
+    "defaultValue": "location.state"
+  },
+  {
+    "name": "metric",
+    "label": "Metric",
+    "description": "Aggregation per region: count | sum | avg | min | max. Default 'count'.",
+    "fieldType": "string",
+    "defaultValue": "count"
+  },
+  {
+    "name": "valueField",
+    "label": "Value field",
+    "description": "Numeric field to aggregate (required when metric is not 'count').",
+    "fieldType": "string",
+    "defaultValue": ""
+  },
+  {
+    "name": "idType",
+    "label": "Join id source",
+    "description": "value (use the region field's RAW value as the join id — best when it matches the atlas feature ids, e.g. 2-letter state codes) | display (use the display value as the id).",
+    "fieldType": "string",
+    "defaultValue": "value"
+  },
+  {
+    "name": "includeName",
+    "label": "Include region name",
+    "description": "Also emit each region's display name (handy for tooltips and name-based joins).",
+    "fieldType": "boolean",
+    "defaultValue": true
+  }
+]
